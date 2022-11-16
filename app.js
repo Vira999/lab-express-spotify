@@ -1,30 +1,90 @@
 require('dotenv').config();
 
-
 const express = require('express');
 const hbs = require('hbs');
 const SpotifyWebApi = require('spotify-web-api-node');
 
-// require spotify-web-api-node package here:
+const bodyParser = require('body-parser');
 
 const app = express();
+
+// require spotify-web-api-node package here:
+
 
 app.set('view engine', 'hbs');
 app.set('views', __dirname + '/views');
 app.use(express.static(__dirname + '/public'));
 
-const spotifyApi = new SpotifyWebApi({
-    clientId: process.env.CLIENT_ID,
-    clientSecret: process.env.CLIENT_SECRET
-  });
-  // Retrieve an access token
-spotifyApi
-.clientCredentialsGrant()
-.then(data => spotifyApi.setAccessToken(data.body['access_token']))
-.catch(error => console.log('Something went wrong when retrieving an access token', error));
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// setting the spotify-api goes here:
+const spotifyApi = new SpotifyWebApi({
+  clientId: process.env.CLIENT_ID, 
+  clientSecret: process.env.CLIENT_SECRET
+  //redirectUri: process.env.REDIRECT_URI || "http://localhost:3000"
+});
+
+
+// Retrieve an access token
+spotifyApi
+  .clientCredentialsGrant()
+  .then(data => {
+    spotifyApi.setAccessToken(data.body["access_token"]);
+  })
+  .catch(error => {
+    console.log("Something went wrong when retrieving an access token", error);
+  });
 
 // Our routes go here:
+app.get('/', (req, res, next) => {
+  res.render('index')
+}) // localhost:3000
 
-app.listen(3000, () => console.log('My Spotify project running on port 3000 🎧 🥁 🎸 🔊'));
+
+app.get('/artist', (req, res, next) => {
+  
+  spotifyApi
+    .searchArtists(req.query.artist)
+    .then(data => {
+        
+        res.render('/artist',  {artist: data.body.artist.items, artist: req.query.artist});
+    })
+    .catch(err => {
+        console.log("The error while searching artists occurred: ", err);
+    })
+});
+
+app.get('/albums:id', (req, res, next) => {
+  spotifyApi
+    .getArtistAlbums(req.params.id)
+    .then(
+      function(data) {
+        let artist = req.query.artist
+        console.log('Artist albums', data.body.items);
+        res.render('/albums', {albums: data.body.items, artist: artist})
+      },
+      function(err) {
+        console.error(err);
+      }
+    );
+})
+
+app.get('/tracks:id', (req, res, next) => {
+  spotifyApi
+    .getAlbumTracks(req.params.id)
+    .then(function(data) {
+      
+      res.render('/tracks', {tracks: data.body.items, album: req.query.album, artist: req.query.artist})
+
+    }, function(err) {
+      console.log('Something is wrong!', err);
+    })
+})
+
+//app.listen(3000, () => console.log("My Spotify project running on port 3000 🎧 🥁 🎸 🔊"));
+
+const port = process.env.PORT || 3000;
+
+app.listen(port, function () {
+ console.log(`My Spotify project running!🎧 🥁 🎸 🔊`);
+});
+
